@@ -1,290 +1,145 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#172033">
-<title>Cambridge Pint Finder</title>
-<link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<style>
-*{box-sizing:border-box}body{margin:0;background:#f3f4f6;color:#172033;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-header{background:#172033;color:#fff;padding:14px 16px 12px;position:sticky;top:0;z-index:1000}
-h1{margin:0;font-size:21px}.sub{font-size:12px;opacity:.72;margin-top:3px}
-.controls{display:flex;gap:7px;overflow-x:auto;padding:9px 10px;background:#fff;position:sticky;top:67px;z-index:900}
-button{border:1px solid #d1d5db;background:#fff;border-radius:18px;padding:9px 12px;font-size:13px;white-space:nowrap}
-button.active{background:#172033;color:#fff;border-color:#172033}
-#map{height:43vh;min-height:300px}.list{padding:9px 12px 100px}
-.card{background:#fff;border-radius:17px;margin:9px 0;overflow:hidden;box-shadow:0 2px 9px #0001}
-.photos{display:grid;grid-template-columns:1fr 1fr;height:145px;background:#ddd}
-.photos img{width:100%;height:145px;object-fit:cover}.photos img:only-child{grid-column:1/3}
-.body{padding:13px}.top{display:flex;justify-content:space-between;gap:10px}.name{font-weight:800;font-size:17px}.price{font-size:19px;font-weight:900;white-space:nowrap}
-.meta,.history,.verified{font-size:12px;color:#667085;line-height:1.45;margin-top:5px}.history{color:#374151;margin-top:9px}
-.tag{display:inline-block;background:#ecfdf5;color:#047857;border-radius:10px;padding:3px 7px;margin:7px 4px 0 0;font-size:11px}
-.nav{display:inline-block;background:#172033;color:#fff;text-decoration:none;padding:8px 11px;border-radius:12px;font-size:12px;margin-top:10px}
-.source{font-size:10px;color:#8a94a6;margin-top:7px}.distance{float:right;color:#667085}
-.hero{background:#fff;border-radius:16px;padding:12px;margin-bottom:10px}.hero b{font-size:13px}.big{font-size:25px;font-weight:900}
-.price-marker{background:#172033;color:#fff;border-radius:13px;padding:4px 7px;font-weight:900;font-size:12px;box-shadow:0 2px 6px #0003;border:2px solid #fff;white-space:nowrap}.leaflet-popup-content{margin:11px}.popupimg{width:180px;height:100px;object-fit:cover;border-radius:8px}.popupprice{font-size:19px;font-weight:900}
-
-.crawl{position:fixed;inset:0;background:#0008;z-index:3000;display:none;align-items:flex-end}
-.crawlbox{background:#fff;width:100%;border-radius:22px 22px 0 0;padding:18px 16px 28px;max-height:85vh;overflow:auto}
-.crawlbox h2{margin:0 0 5px;font-size:20px}.crawlgrid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:12px 0}
-.crawlgrid label{font-size:12px;color:#667085}.crawlgrid select{width:100%;margin-top:4px;border-radius:12px}
-.crawlgo{width:100%;background:#172033;color:#fff;border:0;border-radius:13px;padding:12px;font-weight:800}
-.close{float:right;border:0;background:#eee;padding:7px 11px;border-radius:50%}.route{margin-top:13px}.routeitem{padding:11px 0;border-bottom:1px solid #eee}.routeitem b{font-size:15px}.routeitem small{color:#667085}.total{background:#f3f4f6;padding:11px;border-radius:12px;margin-top:10px;font-weight:800}.supportHero{border:1px solid #e5e7eb}.supportHero button{margin-top:9px;background:#172033;color:#fff;border:0}.crawlgrid input,.crawlgrid select{padding:9px;border:1px solid #d1d5db;font-size:13px}.supportline{padding:10px 0;border-bottom:1px solid #eee}.muted{color:#667085;font-size:12px}
-</style>
-</head>
-<body>
-<header><h1>🍺 Cambridge Pint Finder</h1><div class="sub">Pints • pub history • photos • map</div></header>
-<div class="controls">
-<button class="active" onclick="setFilter('cheap',this)">💷 Cheapest</button>
-<button onclick="setFilter('all',this)">All</button>
-<button onclick="setFilter('historic',this)">🏛 Historic</button>
-<button onclick="setFilter('realale',this)">🍺 Real ale</button>
-<button onclick="locateMe()">📍 Near me</button><button onclick="openCrawl()">🍺 Pub Crawl</button><button onclick="openSupport()">❤️ Save the Pub</button>
-</div>
-<div id="map"></div><div style="background:#fff;padding:7px 12px;font-size:11px;color:#667085">💷 Map labels show the cheapest published pint price in the database.</div>
-<div class="list">
-<div class="hero supportHero">
-<b>❤️ Save the Pub</b>
-<div class="meta">Log visits and optional spend. In Community Mode, anonymous totals are shared across users. We never publish individual spend.</div>
-<button onclick="openSupport()">Support a pub</button>
-<div id="communityStatus" class="muted" style="margin-top:8px"></div>
-</div>
-<div class="hero"><b>🔥 Cheapest published price in this starter database</b><div class="big">£2.80</div><div class="meta">The Castle Inn · prices can change, so verify at the bar.</div></div>
-<div id="list"></div>
-</div>
-
-<div id="crawl" class="crawl" onclick="if(event.target.id==='crawl')closeCrawl()">
- <div class="crawlbox">
-  <button class="close" onclick="closeCrawl()">✕</button>
-  <h2>🍺 Build My Pub Crawl</h2>
-  <div class="meta">Choose your budget and number of pubs. We'll favour cheaper, well-rated historic pubs.</div>
-  <div class="crawlgrid">
-   <label>Budget
-    <select id="budget"><option value="15">£15</option><option value="20" selected>£20</option><option value="25">£25</option><option value="30">£30</option></select>
-   </label>
-   <label>Pubs
-    <select id="pubcount"><option>3</option><option selected>4</option><option>5</option><option>6</option></select>
-   </label>
-  </div>
-  <button class="crawlgo" onclick="buildCrawl()">Find my crawl</button>
-  <div id="route" class="route"></div>
- </div>
-</div>
-
-<div id="support" class="crawl" onclick="if(event.target.id==='support')closeSupport()">
- <div class="crawlbox">
-  <button class="close" onclick="closeSupport()">✕</button>
-  <h2>❤️ Save the Pub</h2>
-  <div class="meta">Every visit supports the pub. Record a visit and, if you want, your spend. Public totals are aggregated and labelled as customer-reported community activity.</div>
-  <div class="crawlgrid">
-   <label>Pub<select id="supportPub"></select></label>
-   <label>Spend (£)<input id="supportSpend" type="number" min="0" step="0.50" placeholder="Optional"></label>
-  </div>
-  <button class="crawlgo" onclick="logSupport()">❤️ Log my visit</button>
-  <div id="supportStats" class="route"></div>
- </div>
-</div>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="supabase-config.js"></script>
-<script>
-const pubs=[
-{name:"The Castle Inn",lat:52.2089,lng:0.1164,price:2.80,beer:"Southwold Bitter",rating:4.3,tags:["historic","realale"],search:"The Castle Inn Cambridge pub",history:"A long-established pub on Castle Street, close to Castle Hill and the historic north-west side of the city centre.",source:"CAMRA / venue listings"},
-{name:"Champion of the Thames",lat:52.2044,lng:0.1265,price:4.30,beer:"Carlsberg",rating:4.7,tags:["historic","realale"],search:"Champion of the Thames Cambridge pub",history:"A Grade II listed pub retaining a largely unaltered late-19th-century interior. Its name comes from an oarsman who won a sculling race on the Thames and moved to Cambridge in 1860. It is one of the remaining pubs associated with the King Street Run.",source:"CAMRA / Christ's College research"},
-{name:"The Pickerel",lat:52.2102,lng:0.1136,price:5.20,beer:"Pint from",rating:4.5,tags:["historic"],search:"Pickerel Cambridge pub",history:"A 16th-century pub on Magdalene Street, known for its old-world rooms, fireplace and traditional pub character.",source:"Venue listing / published history"},
-{name:"The Eagle",lat:52.2024,lng:0.1197,price:5.80,beer:"Pint from",rating:4.4,tags:["historic"],search:"Eagle pub Cambridge",history:"One of Cambridge's best-known historic pubs on Bene't Street, famous for its RAF Bar and strong connections with the university's history.",source:"Venue / historical listings"},
-{name:"The Free Press",lat:52.2110,lng:0.1274,price:4.80,beer:"Pint from",rating:4.6,tags:["historic","realale"],search:"Free Press Cambridge pub",history:"A traditional pub on Prospect Row, noted by CAMRA for its historic interior and outstanding restoration.",source:"CAMRA"},
-{name:"The Maypole",lat:52.2050,lng:0.1290,price:5.00,beer:"Pint from",rating:4.4,tags:["historic"],search:"Maypole Cambridge pub",history:"A characterful old pub close to the River Cam and Midsummer Common, popular for its traditional atmosphere and riverside setting.",source:"Venue / local listings"},
-{name:"The Cambridge Blue",lat:52.1949,lng:0.1345,price:5.00,beer:"Pint from",rating:4.5,tags:["realale"],search:"Cambridge Blue pub",history:"A much-loved Cambridge beer pub known for a strong real-ale and cider reputation.",source:"Venue / local listings"},
-{name:"The Mill",lat:52.1990,lng:0.1175,price:5.20,beer:"Pint from",rating:4.4,tags:[],search:"The Mill Cambridge pub",history:"A riverside pub on Mill Lane with a long connection to Cambridge's social and student life.",source:"Venue / local listings"},
-{name:"The Mitre",lat:52.2071,lng:0.1191,price:5.30,beer:"Pint from",rating:4.3,tags:["historic"],search:"Mitre Cambridge pub Bridge Street",history:"A central pub on Bridge Street, right beside the historic colleges and close to the River Cam.",source:"Venue / local listings"}
-];
-
-const map=L.map('map').setView([52.205,0.122],15);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap contributors'}).addTo(map);
-let markers=[],filter='cheap',userPos=null,photoCache={};
-
-async function getPhotos(p){
- if(photoCache[p.name]) return photoCache[p.name];
- try{
-  const url='https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch='+encodeURIComponent(p.search)+'&gsrnamespace=6&gsrlimit=2&prop=imageinfo&iiprop=url&iiurlwidth=700&format=json&origin=*';
-  const r=await fetch(url); const d=await r.json();
-  const pages=d.query?.pages||{};
-  photoCache[p.name]=Object.values(pages).map(x=>x.imageinfo?.[0]?.thumburl||x.imageinfo?.[0]?.url).filter(Boolean).slice(0,2);
- }catch(e){photoCache[p.name]=[]}
- return photoCache[p.name];
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#172033"><title>Where We Going Then? V9.9 — Cromer</title><link rel="manifest" href="manifest.json"><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"><style>
+*{box-sizing:border-box}body{margin:0;background:#f3f4f6;color:#172033;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{background:#172033;color:#fff;padding:16px 16px;position:sticky;top:0;z-index:1000;min-height:96px}h1{margin:0;padding-right:118px;font-size:21px;line-height:1.15}.sub{font-size:12px;opacity:.75;margin-top:3px;padding-right:118px}.homeTop{position:absolute;right:14px;top:18px;border:0;background:#fff;color:#1769d2;border-radius:24px;padding:10px 14px;font-size:14px;font-weight:700;box-shadow:0 2px 8px #0002;z-index:2}.controls{display:flex;gap:7px;overflow-x:auto;padding:9px 10px;background:#fff;position:sticky;top:96px;z-index:900}button{border:1px solid #d1d5db;background:#fff;border-radius:18px;padding:9px 12px;font-size:13px;white-space:nowrap}button.active{background:#172033;color:#fff;border-color:#172033}#map{height:43vh;min-height:300px}.list{padding:9px 12px 100px}.hero,.card{background:#fff;border-radius:17px;margin:9px 0;padding:13px;box-shadow:0 2px 9px #0001}.hero b{font-size:13px}.big{font-size:23px;font-weight:900;margin-top:4px}.card{padding:0;overflow:hidden}.photos{display:grid;grid-template-columns:1fr 1fr;height:145px;background:#ddd}.photos img{width:100%;height:145px;object-fit:cover}.body{padding:13px}.top{display:flex;justify-content:space-between;gap:10px}.name{font-weight:800;font-size:17px}.price{font-size:18px;font-weight:900;white-space:nowrap}.meta,.history{font-size:12px;color:#667085;line-height:1.45;margin-top:5px}.tag{display:inline-block;background:#ecfdf5;color:#047857;border-radius:10px;padding:3px 7px;margin:7px 4px 0 0;font-size:11px}.nav{display:inline-block;background:#172033;color:#fff;text-decoration:none;padding:8px 11px;border-radius:12px;font-size:12px;margin-top:10px}.distance{float:right}.beerList{margin-top:10px;border-top:1px solid #eee;padding-top:8px}.beerRow{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid #f1f2f4;font-size:13px}.beerRow small{display:block;color:#98a2b3;font-size:10px;margin-top:2px;text-transform:capitalize}.beerRow b{font-size:13px;white-space:nowrap}.noBeer{margin-top:9px;background:#f8fafc;border-radius:10px;padding:8px;color:#667085;font-size:11px}.price-marker{background:#172033;color:#fff;border-radius:13px;padding:4px 7px;font-weight:900;font-size:12px;box-shadow:0 2px 6px #0003;border:2px solid #fff}.modal{position:fixed;inset:0;background:#0008;z-index:3000;display:none;align-items:flex-end}.box{background:#fff;width:100%;border-radius:22px 22px 0 0;padding:18px 16px 28px;max-height:85vh;overflow:auto}.close{float:right;border:0;background:#eee;padding:7px 11px;border-radius:50%}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0}.grid button{font-size:17px;padding:16px}.start{position:fixed;inset:0;background:linear-gradient(160deg,#172033,#31415f);z-index:5000;color:#fff;display:flex;align-items:center;justify-content:center;padding:22px}.startbox{width:min(520px,100%);text-align:center}.startbox h2{font-size:34px;margin:0 0 8px}.startbox p{opacity:.78;margin:0 0 24px}.choice{display:grid;gap:12px}.choice button{font-size:18px;padding:18px;font-weight:800}.choice small{display:block;font-size:11px;color:#667085;margin-top:4px;font-weight:500}.cityscreen{display:none}.citygrid{display:grid;gap:12px}.citygrid button{font-size:18px;padding:18px}.back{margin-top:14px;background:transparent!important;color:#fff!important;border-color:#ffffff55!important}.routeitem{padding:11px 0;border-bottom:1px solid #eee}.total{background:#f3f4f6;padding:11px;border-radius:12px;margin-top:10px;font-weight:800}.muted{font-size:12px;color:#667085}.wheelScreen{display:none;position:fixed;inset:0;background:linear-gradient(160deg,#172033,#31415f);z-index:6000;color:#fff;align-items:center;justify-content:center;padding:22px}.wheelbox{width:min(520px,100%);text-align:center}.wheelbox h2{font-size:32px;margin:0 0 8px}.wheelbox p{opacity:.78;margin:0 0 22px}.wheel{width:230px;height:230px;border-radius:50%;margin:0 auto 24px;border:10px solid #fff;position:relative;overflow:hidden;background:conic-gradient(#f7f7f7 0deg 180deg,#dbeafe 180deg 360deg);box-shadow:0 8px 30px #0005;transition:transform 2.2s cubic-bezier(.15,.8,.2,1)}.wheel:before{content:"?";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:58px;font-weight:900;color:#172033}.pointer{width:0;height:0;border-left:12px solid transparent;border-right:12px solid transparent;border-top:22px solid #fff;margin:-8px auto 10px;position:relative;z-index:2}.spinAction{font-size:18px;font-weight:800;padding:15px 28px;background:#fff;color:#172033;border:0}.wheelResult{min-height:25px;font-size:18px;font-weight:800;margin:14px 0}.wheelBack{margin-top:8px;background:transparent!important;color:#fff!important;border-color:#ffffff55!important}
+</style></head><body>
+<div id="start" class="start"><div class="startbox"><h2>🍺 Where We Going Then?</h2><p>What are we doing today?</p><div class="choice"><button onclick="chooseMode('drink')">🍻 I’m drinking<small>Pubs • pints • real ale • pub crawl</small></button><button onclick="chooseMode('nodrink')">🥤 I’m not drinking<small>Coffee • 0.0% • food • somewhere nice</small></button><button onclick="randomMode()">🎡 I’m not sure — spin the wheel<small>Let the app decide</small></button></div></div></div>
+<div id="wheelScreen" class="wheelScreen"><div class="wheelbox"><h2>🎡 Let the wheel decide</h2><p>Let the wheel choose your city and your plan.</p><div class="pointer"> </div><div id="wheel" class="wheel"></div><button class="spinAction" onclick="doWheelSpin()">SPIN THE WHEEL</button><div id="wheelResult" class="wheelResult"></div><button class="wheelBack" onclick="closeWheel()">← Back</button></div></div>
+<div id="cities" class="start cityscreen"><div class="startbox"><h2>📍 Where are we going?</h2><p>Pick a city.</p><div class="citygrid"><button onclick="chooseCity('Cambridge')">📍 Cambridge</button><button onclick="chooseCity('Norwich')">📍 Norwich</button><button onclick="chooseCity('Thetford')">📍 Thetford</button><button onclick="chooseCity('Cromer')">📍 Cromer</button></div><button class="back" onclick="backStart()">← Back</button></div></div>
+<header><button class="homeTop" onclick="goHome()">🏠 Home</button><h1>🍺 Where We Going Then?</h1><div class="sub" id="sub">Pints • coffee • food • places worth going</div></header>
+<div class="controls"><button id="drinkBtn" onclick="setMode('drink',this)">🍻 Drinking</button><button id="nodrinkBtn" onclick="setMode('nodrink',this)">🥤 Not drinking</button><button onclick="spinWheel()">🎡 Spin</button><button class="active" onclick="setFilter('cheap',this)">💷 Best value</button><button onclick="setFilter('all',this)">All</button><button onclick="setFilter('historic',this)">🏛 Historic</button><button onclick="setFilter('realale',this)">🍺 Real ale</button><button onclick="locateMe()">📍 Near me</button><button id="crawlBtn" onclick="openCrawl()">🍺 Pub Crawl</button></div>
+<div id="map"></div><div class="list"><div class="hero"><b>✨ Quick pick</b><div id="quick" class="big">Loading…</div><div id="quickMeta" class="muted"></div></div><div id="list"></div></div>
+<div id="crawl" class="modal" onclick="if(event.target.id==='crawl')closeCrawl()"><div class="box"><button class="close" onclick="closeCrawl()">✕</button><h2>🍺 Build My Pub Crawl</h2><div class="grid"><label>Budget<select id="budget"><option>15</option><option selected>20</option><option>25</option><option>30</option></select></label><label>Pubs<select id="pubcount"><option>3</option><option selected>4</option><option>5</option><option>6</option></select></label></div><button onclick="buildCrawl()" style="width:100%;background:#172033;color:#fff">Find my crawl</button><div id="route"></div></div></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script>
+const places=[
+['The Albion','Cromer','pub',52.9312,1.3026,4.4,['realale'],[],'The Albion Cromer pub'],
+['Anglia Court Hotel','Cromer','pub',52.9314,1.2965,4.1,['hotel'],[],'Anglia Court Hotel Cromer'],
+['Aurora Bar and Restaurant','Cromer','pub',52.9320,1.3010,4.3,['food'],[],'Aurora Cromer'],
+['Bath House Hotel','Cromer','pub',52.9324,1.3012,4.2,['hotel'],[],'Bath House Hotel Cromer'],
+['Cabbell Towers Restaurant Bar','Cromer','pub',52.9310,1.2979,4.2,['food'],[],'Cabbell Towers Cromer'],
+['The Cliftonville','Cromer','pub',52.9316,1.2949,4.4,['hotel','food'],[],'Cliftonville Hotel Cromer'],
+['The Cottage','Cromer','pub',52.9300,1.3014,4.2,['pub'],[],'Cottage Louden Road Cromer'],
+['Cromer Social Club','Cromer','pub',52.9320,1.3040,4.5,['club'],[],'Cromer Social Club'],
+['Giovannis','Cromer','pub',52.9320,1.3007,4.2,['food'],[],'Giovannis Cromer'],
+['Hotel de Paris','Cromer','pub',52.9324,1.3017,4.3,['hotel'],[],'Hotel de Paris Cromer'],
+['Kings Head','Cromer','pub',52.9322,1.3021,4.0,['historic','realale'],[],'Kings Head Cromer pub'],
+['Cromer Pier Pavilion Bar','Cromer','pub',52.9335,1.3011,4.2,['bar'],[],'Cromer Pier Pavilion Bar'],
+['Poppyland Brewery Tap','Cromer','pub',52.9307,1.2965,4.6,['realale'],[],'Poppyland Brewery Tap Cromer'],
+['The Red Lion Hotel','Cromer','pub',52.9320,1.3046,4.5,['historic','realale','food'],[],'Red Lion Hotel Cromer'],
+['Royal Cromer Golf Club','Cromer','pub',52.9258,1.3260,4.7,['club'],[],'Royal Cromer Golf Club'],
+['Shoreline Bar & Lounge','Cromer','pub',52.9313,1.3030,4.7,['bar'],[],'Shoreline Bar Lounge Cromer'],
+['Suffield Park Hotel','Cromer','pub',52.9249,1.3108,4.2,['hotel'],[],'Suffield Park Hotel Cromer'],
+['The Wellington','Cromer','pub',52.9320,1.3001,4.2,['historic'],[],'Wellington Cromer pub'],
+['The White Horse Inn','Cromer','pub',52.9308,1.2968,4.3,['historic','realale'],[],'White Horse Inn Cromer'],
+['Wildcraft Tap Cromer','Cromer','pub',52.9320,1.2998,4.6,['realale'],[],'Wildcraft Tap Cromer'],
+['The Red Lion','Thetford','pub',52.4129,.7483,4.1,['realale'],[{name:'Wherry',style:'realale',price:4.2,size:'pint',lastChecked:'2026-09-14'}],'The Red Lion Thetford'],
+['The Bell','Thetford','pub',52.4143,.7482,3.9,['historic'],[],'The Bell Thetford pub'],
+['The Green Dragon','Thetford','pub',52.4140,.7477,4.3,['realale'],[],'The Green Dragon Thetford pub'],
+['Black Horse','Thetford','pub',52.4144,.7460,4.7,['realale'],[],'Black Horse Thetford pub'],
+['The Albion','Thetford','pub',52.4155,.7487,4.5,['realale'],[],'The Albion Thetford pub'],
+['The Chase','Thetford','pub',52.4210,.7542,4.0,['food'],[],'The Chase Thetford pub'],
+['The Norfolk Terrier','Thetford','pub',52.4253,.7542,4.3,['food'],[],'The Norfolk Terrier Thetford pub'],
+['The Railway','Thetford','pub',52.4132,.7437,4.2,['historic'],[],'The Railway Thetford pub'],
+['The Warrener','Thetford','pub',52.4110,.7600,4.0,['food'],[],'The Warrener Thetford pub'],
+['The Dolphin Inn','Thetford','pub',52.4148,.7491,4.3,['historic','realale'],[],'Dolphin Inn Thetford pub'],
+['The Deers Leap','Thetford','pub',52.4248,.7604,4.0,['food'],[],'Deers Leap Thetford pub'],
+['Thomas Paine Hotel','Thetford','pub',52.4149,.7488,4.0,['historic','food'],[],'Thomas Paine Hotel Thetford pub'],
+['Kings Head','Thetford','pub',52.4149,.7500,3.8,['historic'],[],'Kings Head Thetford pub'],
+['Rose & Crown','Thetford','pub',52.4170,.7482,4.0,['realale'],[],'Rose and Crown Thetford pub'],
+['Trowel & Hammer','Thetford','pub',52.4095,.7420,4.0,['pub'],[],'Trowel and Hammer Thetford pub'],
+['Central Cafe & Restaurant','Thetford','cafe',52.4146,.7487,4.5,['coffee','food'],[],'Central Cafe Thetford'],
+['Castle Café','Thetford','cafe',52.4153,.7490,4.7,['coffee'],[],'Castle Cafe Thetford'],
+['Tall Orders Coffee Shop','Thetford','cafe',52.4140,.7471,4.5,['coffee'],[],'Tall Orders Coffee Shop Thetford'],
+['The Riverside Kiosk','Thetford','cafe',52.4148,.7523,5.0,['coffee','food'],[],'The Riverside Kiosk Thetford'],
+["Mama D's",'Thetford','cafe',52.4140,.7476,4.9,['coffee','food'],[],"Mama D's Thetford"],
+["L's Kitchen",'Thetford','cafe',52.4117,.7530,4.8,['coffee','food'],[],"L's Kitchen Thetford"],
+['Mr Pats','Thetford','cafe',52.4140,.7710,4.9,['coffee','food'],[],'Mr Pats Thetford'],
+['O BOTECO','Thetford','cafe',52.4149,.7490,4.5,['coffee','food'],[],'O BOTECO Thetford'],
+['O Cabaz','Thetford','cafe',52.4149,.7497,4.5,['coffee','food'],[],'O Cabaz Thetford'],
+['Costa Coffee – King Street','Thetford','cafe',52.4140,.7470,4.2,['coffee'],[],'Costa Coffee 14 King Street Thetford'],
+['Costa Coffee – Forest Retail Park','Thetford','cafe',52.4018,.7486,4.1,['coffee'],[],'Costa Coffee Forest Retail Park Thetford'],
+['Ball Pit Café','Thetford','cafe',52.4050,.7620,5.0,['coffee','food'],[],'Ball Pit Cafe Thetford'],
+['Strangers Coffee House','Norwich','cafe',52.6280,1.2931,4.6,['coffee'],[],'Strangers Coffee House Norwich'],
+['The Bicycle Shop','Norwich','cafe',52.6256,1.2923,4.5,['coffee','food'],[],'The Bicycle Shop Norwich cafe'],
+['Kofra Coffee','Norwich','cafe',52.6289,1.2947,4.5,['coffee'],[],'Kofra Coffee Norwich'],
+["King's Head",'Norwich','pub',52.6298,1.2990,4.7,['historic','realale'],[],"King's Head Norwich pub"],
+['The Adam and Eve','Norwich','pub',52.6318,1.3008,4.5,['historic','realale'],[],'Adam and Eve Norwich pub'],
+['The Golden Star','Norwich','pub',52.6334,1.2980,4.5,['historic'],[],'Golden Star Norwich pub'],
+['The Ten Bells','Norwich','pub',52.6291,1.2945,4.5,['realale'],[],'Ten Bells Norwich pub'],
+['The Castle Inn','Cambridge','pub',52.2089,-.1164,4.3,['historic','realale'],[{name:'Southwold Bitter',style:'realale',price:2.8,size:'pint',lastChecked:'2026-09-13'}],'The Castle Inn Cambridge pub'],
+['Champion of the Thames','Cambridge','pub',52.2044,-.1265,4.7,['historic','realale'],[{name:'Carlsberg',style:'lager',price:4.3,size:'pint',lastChecked:'2026-09-13'}],'Champion of the Thames Cambridge pub'],
+['The Pickerel','Cambridge','pub',52.2102,-.1136,4.5,['historic'],[],'Pickerel Cambridge pub'],
+['The Eagle','Cambridge','pub',52.2024,-.1197,4.4,['historic'],[],'Eagle pub Cambridge'],
+['The Free Press','Cambridge','pub',52.2110,-.1274,4.6,['historic','realale'],[],'Free Press Cambridge pub'],
+['The Cambridge Blue','Cambridge','pub',52.1949,-.1345,4.5,['realale'],[],'Cambridge Blue pub'],
+['Hot Numbers Coffee – Trumpington St','Cambridge','cafe',52.1979,-.1218,4.5,['coffee'],[],'Hot Numbers Coffee Trumpington Street Cambridge'],
+["Aromi – Bene't Street",'Cambridge','cafe',52.2021,-.1193,4.6,['coffee','food'],[],"Aromi Bene't Street Cambridge"],
+['Fitzbillies','Cambridge','cafe',52.1972,-.1250,4.5,['coffee','food'],[],'Fitzbillies Cambridge']
+].map(x=>({name:x[0],city:x[1],type:x[2],lat:x[3],lng:x[4],rating:x[5],tags:x[6],beers:x[7],search:x[8]})).map(x=>({name:x[0],city:x[1],type:x[2],lat:x[3],lng:x[4],price:x[5],rating:x[6],tags:x[7],item:x[8],search:x[9],beers:x[10]||[]}));
+function minBeerPrice(p){const prices=(p.beers||[]).map(b=>Number(b.price)).filter(Number.isFinite);return prices.length?Math.min(...prices):null}
+function beerSummary(p){if(!p.beers?.length)return 'Beer prices not yet added';return p.beers.map(b=>`${b.name} £${Number(b.price).toFixed(2)}`).join(' · ')}
+const centers={Cambridge:[52.205,-.122],Norwich:[52.630,1.296],Thetford:[52.414,.749],Cromer:[52.9315,1.3010]};let city='Cambridge',mode='drink',filter='cheap',markers=[],userPos=null,photos={},map=null;function initMap(){if(map||!window.L)return false;try{map=L.map('map').setView(centers.Cambridge,15);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap contributors'}).addTo(map);return true}catch(e){return false}}
+function goHome(){
+  document.getElementById('cities').style.display='none';
+  document.getElementById('wheelScreen').style.display='none';
+  document.getElementById('start').style.display='flex';
+  window.scrollTo(0,0);
 }
-function distanceKm(a,b,c,d){const R=6371,x=(c-a)*Math.PI/180,y=(d-b)*Math.PI/180;const q=Math.sin(x/2)**2+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(y/2)**2;return 2*R*Math.asin(Math.sqrt(q))}
-function render(){
- markers.forEach(m=>map.removeLayer(m));markers=[];
- let arr=[...pubs];
- if(filter==='historic')arr=arr.filter(p=>p.tags.includes('historic'));
- if(filter==='realale')arr=arr.filter(p=>p.tags.includes('realale'));
- if(userPos)arr.forEach(p=>p.distance=distanceKm(userPos.lat,userPos.lng,p.lat,p.lng));
- arr.sort((a,b)=>userPos?a.distance-b.distance:a.price-b.price);
- document.getElementById('list').innerHTML='';
- arr.forEach((p,i)=>{
-  const icon=L.divIcon({className:'',html:`<div class="price-marker">£${p.price.toFixed(2)}</div>`,iconSize:[58,26],iconAnchor:[29,13]});
-  const m=L.marker([p.lat,p.lng],{icon}).addTo(map);
-  m.bindPopup(`<b>${p.name}</b><br><span class="popupprice">£${p.price.toFixed(2)}</span> ${p.beer}<br>⭐ ${p.rating}<br><a target="_blank" href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(p.name+', Cambridge')}">Navigate</a>`);
-  markers.push(m);
-  loadCard(p,i);
- });
+function chooseMode(m){
+  mode=m;
+  document.getElementById('start').style.display='none';
+  document.getElementById('cities').style.display='flex';
 }
-async function loadCard(p,i){
- const imgs=await getPhotos(p);
- const card=document.createElement('div');card.className='card';
- const photoHTML=imgs.length?`<div class="photos">${imgs.map(u=>`<img loading="lazy" src="${u}" alt="${p.name}"></div>`).join('')}`:'';
- const dist=p.distance?`<span class="distance">${(p.distance*0.621371).toFixed(1)} mi</span>`:'';
- card.innerHTML=photoHTML+`<div class="body"><div class="top"><div class="name">${i+1}. ${p.name}</div><div class="price">£${p.price.toFixed(2)}</div></div><div class="meta">⭐ ${p.rating} · ${p.beer}${dist}</div>${p.tags.includes('historic')?'<span class="tag">Historic</span>':''}${p.tags.includes('realale')?'<span class="tag">Real ale</span>':''}<div class="history">📜 ${p.history}</div><div class="verified">Price is indicative and may change. History: ${p.source}.</div><a class="nav" target="_blank" href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(p.name+', Cambridge')}">📍 Navigate</a></div>`;
- document.getElementById('list').appendChild(card);
+function backStart(){
+  document.getElementById('cities').style.display='none';
+  document.getElementById('start').style.display='flex';
 }
-function setFilter(f,b){filter=f;document.querySelectorAll('button').forEach(x=>x.classList.remove('active'));b.classList.add('active');render()}
-function locateMe(){
- if(!navigator.geolocation)return alert('Location unavailable.');
- navigator.geolocation.getCurrentPosition(pos=>{userPos={lat:pos.coords.latitude,lng:pos.coords.longitude};L.marker([userPos.lat,userPos.lng]).addTo(map).bindPopup('You are here').openPopup();map.setView([userPos.lat,userPos.lng],14);render()},()=>alert('Allow location access in Safari to use Near me.'));
+function chooseCity(c){
+  document.getElementById('start').style.display='none';
+  document.getElementById('wheelScreen').style.display='none';
+  city=c;
+  document.getElementById('cities').style.display='none';
+  document.getElementById('sub').textContent=c+' • '+(mode==='drink'?'pubs • pints • real ale':'coffee • 0.0% • food • somewhere nice');
+  document.getElementById('drinkBtn').classList.toggle('active',mode==='drink');
+  document.getElementById('nodrinkBtn').classList.toggle('active',mode==='nodrink');
+  document.getElementById('crawlBtn').style.display=mode==='drink'?'inline-block':'none';
+  if(initMap()) map.setView(centers[c],15);
+  render();
 }
-
-function openCrawl(){document.getElementById('crawl').style.display='flex';}
-function closeCrawl(){document.getElementById('crawl').style.display='none';}
-function buildCrawl(){
- const budget=Number(document.getElementById('budget').value), n=Number(document.getElementById('pubcount').value);
- // Score balances price, rating and historic character.
- let candidates=pubs.map(p=>({...p,score:(p.rating*1.7)+(p.tags.includes('historic')?1.2:0)-(p.price*.22)}))
-   .sort((a,b)=>b.score-a.score);
- let chosen=[],total=0;
- for(const p of candidates){
-   if(chosen.length>=n) break;
-   if(total+p.price<=budget) {chosen.push(p);total+=p.price;}
- }
- if(chosen.length<n){
-   const byPrice=[...pubs].sort((a,b)=>a.price-b.price);
-   for(const p of byPrice) if(!chosen.some(x=>x.name===p.name) && chosen.length<n){chosen.push(p);total+=p.price;}
- }
- const route=document.getElementById('route');
- route.innerHTML=`<div class="total">🍺 ${chosen.length} pubs · estimated beer total £${total.toFixed(2)}</div>`+
- chosen.map((p,i)=>{
-   const maps='https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(p.name+', Cambridge');
-   return `<div class="routeitem"><b>${i+1}. ${p.name}</b> — £${p.price.toFixed(2)}<br><small>⭐ ${p.rating} · ${p.tags.includes('historic')?'Historic · ':''}${p.beer}</small><br><small>${p.history}</small><br><a class="nav" target="_blank" href="${maps}">📍 Navigate</a></div>`;
- }).join('');
- // Put the chosen pubs on the map and fit them.
- if(chosen.length){map.fitBounds(chosen.map(p=>[p.lat,p.lng]),{padding:[30,30]});}
+function randomMode(){
+  document.getElementById('start').style.display='none';
+  document.getElementById('cities').style.display='none';
+  document.getElementById('wheelScreen').style.display='flex';
+  document.getElementById('wheelResult').textContent='';
+  document.getElementById('wheel').style.transform='rotate(0deg)';
 }
-
-
-const SUPPORT_KEY='cpf_support_v1';
-
-// V8 Community Mode:
-// 1) Copy supabase-config.example.js to supabase-config.js
-// 2) Add your Supabase project URL + anon key
-// 3) Run supabase_schema.sql in Supabase SQL Editor
-// The app falls back to local-only storage if Community Mode isn't configured.
-
-let supabaseClient=null;
-let communityReady=false;
-let communityEvents=[];
-
-async function initCommunity(){
-  try{
-    if(window.CPF_SUPABASE_URL && window.CPF_SUPABASE_ANON_KEY){
-      const {createClient}=window.supabase;
-      supabaseClient=createClient(window.CPF_SUPABASE_URL,window.CPF_SUPABASE_ANON_KEY);
-      await supabaseClient.auth.signInAnonymously();
-      communityReady=true;
-      document.getElementById('communityStatus').textContent='🌍 Community Mode connected — visits contribute to the shared pub-support totals.';
-    }else{
-      document.getElementById('communityStatus').textContent='📱 Personal Mode — community totals are not connected yet.';
-    }
-  }catch(e){
-    console.warn('Community Mode unavailable:',e);
-    communityReady=false;
-    document.getElementById('communityStatus').textContent='📱 Personal Mode — Community Mode needs its Supabase setup.';
-  }
+function closeWheel(){document.getElementById('wheelScreen').style.display='none'}
+function doWheelSpin(){
+  const options=[['Cambridge','drink'],['Cambridge','nodrink'],['Norwich','drink'],['Norwich','nodrink'],['Thetford','drink'],['Thetford','nodrink'],['Cromer','drink'],['Cromer','nodrink']];
+  const idx=Math.floor(Math.random()*options.length);
+  const pick=options[idx];
+  const cityPick=pick[0];
+  const modePick=pick[1];
+  mode=modePick;
+  const extra=1800+idx*60;
+  document.getElementById('wheel').style.transform='rotate('+extra+'deg)';
+  setTimeout(function(){
+    city=cityPick;
+    mode=modePick;
+    document.getElementById('wheelResult').textContent=(modePick==='drink'?'🍺 ':'🥤 ')+cityPick+' — '+(modePick==='drink'?'I’m drinking!':'I’m not drinking!');
+    setTimeout(function(){
+      closeWheel();
+      chooseCity(cityPick);
+    },900);
+  },2300);
 }
-function getSupport(){try{return JSON.parse(localStorage.getItem(SUPPORT_KEY)||'{}')}catch(e){return {}}}
-function saveSupport(x){localStorage.setItem(SUPPORT_KEY,JSON.stringify(x))}
-
-async function openSupport(){
- document.getElementById('support').style.display='flex';
- const sel=document.getElementById('supportPub');
- sel.innerHTML=pubs.map(p=>`<option value="${p.name}">${p.name}</option>`).join('');
- await renderSupportStats();
+function spinWheel(){
+  randomMode();
 }
-function closeSupport(){document.getElementById('support').style.display='none'}
-
-async function logSupport(){
- const name=document.getElementById('supportPub').value;
- const spend=Math.max(0,Number(document.getElementById('supportSpend').value||0));
- const pub=pubs.find(p=>p.name===name);
- if(!pub)return;
-
- // Always keep a private local copy on this device.
- const d=getSupport();
- d[name]=d[name]||{visits:0,spend:0};
- d[name].visits++;
- d[name].spend+=spend;
- saveSupport(d);
-
- // If configured, also add an anonymous community event.
- if(communityReady && supabaseClient){
-   const {error}=await supabaseClient.from('pub_support_events').insert({
-     pub_name:name,
-     spend_gbp:spend,
-     visit_date:new Date().toISOString()
-   });
-   if(error){
-     console.error(error);
-     alert('Your visit was saved on this phone, but the shared Community Mode upload failed.');
-   }
- }
- document.getElementById('supportSpend').value='';
- await renderSupportStats();
-}
-
-async function fetchCommunityStats(){
- if(!communityReady || !supabaseClient) return null;
- const {data,error}=await supabaseClient
-   .from('pub_support_summary')
-   .select('pub_name, visits, reported_spend')
-   .order('visits',{ascending:false});
- if(error){console.error(error); return null;}
- return data||[];
-}
-
-async function renderSupportStats(){
- const local=getSupport();
- let localVisits=0,localSpend=0;
- Object.values(local).forEach(x=>{localVisits+=x.visits||0;localSpend+=x.spend||0});
-
- const community=await fetchCommunityStats();
- if(community){
-   const totalVisits=community.reduce((s,x)=>s+(Number(x.visits)||0),0);
-   const totalSpend=community.reduce((s,x)=>s+(Number(x.reported_spend)||0),0);
-   const byName={}; community.forEach(x=>byName[x.pub_name]=x);
-   const ranked=pubs.map(p=>({p, ...(byName[p.name]||{visits:0,reported_spend:0})}))
-      .filter(x=>x.visits||x.reported_spend)
-      .sort((a,b)=>(Number(b.visits)-Number(a.visits)) || (Number(b.reported_spend)-Number(a.reported_spend)));
-
-   document.getElementById('supportStats').innerHTML=
-    `<div class="total">🌍 Community activity: ${totalVisits} visits · £${totalSpend.toFixed(2)} reported spend</div>`+
-    (ranked.length?ranked.map(x=>`<div class="supportline"><b>${x.p.name}</b><br><span class="muted">${Number(x.visits)} visit${Number(x.visits)===1?'':'s'} · £${Number(x.reported_spend).toFixed(2)} reported spend</span></div>`).join(''):'<div class="muted">No community visits logged yet.</div>')+
-    `<p class="muted">Aggregated, anonymous customer-reported activity. It is not a measure of financial health and does not prove that visits prevented closure.</p>
-     <div class="supportline"><b>Your phone</b><br><span class="muted">${localVisits} local visit${localVisits===1?'':'s'} · £${localSpend.toFixed(2)} reported spend</span></div>`;
- }else{
-   const ranked=pubs.map(p=>({p,...(local[p.name]||{visits:0,spend:0})}))
-      .filter(x=>x.visits||x.spend)
-      .sort((a,b)=>b.visits-a.visits);
-   document.getElementById('supportStats').innerHTML=
-    `<div class="total">📱 Your activity: ${localVisits} visits · £${localSpend.toFixed(2)} reported spend</div>`+
-    (ranked.length?ranked.map(x=>`<div class="supportline"><b>${x.p.name}</b><br><span class="muted">${x.visits} visit${x.visits===1?'':'s'} · £${x.spend.toFixed(2)} reported spend</span></div>`).join(''):'<div class="muted">No visits logged yet.</div>')+
-    '<p class="muted">Personal Mode stores data only on this device. Connect Community Mode to combine anonymous activity from all users.</p>';
- }
-}
-
-initCommunity();
-
-render();
-</script>
-</body></html>
+function setMode(m,b){mode=m;document.querySelectorAll('.controls button').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.getElementById('sub').textContent=`${city} • ${mode==='drink'?'pubs • pints • real ale':'coffee • 0.0% • food • somewhere nice'}`;document.getElementById('crawlBtn').style.display=mode==='drink'?'inline-block':'none';render()}function setFilter(f,b){filter=f;document.querySelectorAll('.controls button').forEach(x=>x.classList.remove('active'));b.classList.add('active');render()}
+function data(){let a=places.filter(p=>p.city===city&&p.type===(mode==='drink'?'pub':'cafe'));if(filter==='historic')a=a.filter(p=>p.tags.includes('historic'));if(filter==='realale')a=a.filter(p=>p.tags.includes('realale'));if(userPos)a.forEach(p=>p.distance=dist(userPos.lat,userPos.lng,p.lat,p.lng));a.sort((x,y)=>filter==='cheap'?((minBeerPrice(x)??x.price??999)-(minBeerPrice(y)??y.price??999)):(userPos?x.distance-y.distance:y.rating-x.rating));return a}function dist(a,b,c,d){const R=6371,x=(c-a)*Math.PI/180,y=(d-b)*Math.PI/180,q=Math.sin(x/2)**2+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(y/2)**2;return 2*R*Math.asin(Math.sqrt(q))}
+async function getPhotos(p){if(photos[p.name])return photos[p.name];try{let u='https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch='+encodeURIComponent(p.search)+'&gsrnamespace=6&gsrlimit=2&prop=imageinfo&iiprop=url&iiurlwidth=700&format=json&origin=*';let d=await (await fetch(u)).json();photos[p.name]=Object.values(d.query?.pages||{}).map(x=>x.imageinfo?.[0]?.thumburl).filter(Boolean).slice(0,2)}catch(e){photos[p.name]=[]}return photos[p.name]}
+async function render(){if(!map)initMap();markers.forEach(m=>{if(map)map.removeLayer(m)});markers=[];const a=data();document.getElementById('list').innerHTML='';if(!map)document.getElementById('map').innerHTML='<div style="padding:28px;text-align:center;background:#e5e7eb;color:#475467;font-weight:700">Map is temporarily unavailable. The places list below is still working.</div>';a.forEach((p,i)=>{if(!map)return;const mp=p.type==='pub'?minBeerPrice(p):null;let icon=L.divIcon({className:'',html:`<div class="price-marker">${p.type==='pub'?(mp!==null?'£'+mp.toFixed(2):'£—'):'☕'}</div>`,iconSize:[58,26],iconAnchor:[29,13]});let m=L.marker([p.lat,p.lng],{icon}).addTo(map);m.bindPopup(`<b>${p.name}</b><br>${p.type==='pub'?(mp!==null?beerSummary(p):'Beer prices not yet added'):'☕ '+p.item}<br>⭐ ${p.rating}<br><a target="_blank" href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(p.name+', '+city)}">Navigate</a>`);markers.push(m);loadCard(p,i)});let q=a[0],qp=q&&q.type==='pub'?minBeerPrice(q):null;document.getElementById('quick').textContent=q?(q.type==='pub'?(qp!==null?`From £${qp.toFixed(2)} · ${q.name}`:`${q.name} · prices coming soon`):`☕ ${q.name}`):'Nothing found';document.getElementById('quickMeta').textContent=q?`${city} · ⭐ ${q.rating} · ${q.type==='pub'?beerSummary(q):q.item}`:''}
+async function loadCard(p,i){let imgs=await getPhotos(p),ph=imgs.length?`<div class="photos">${imgs.map(u=>`<img loading="lazy" src="${u}" alt="${p.name}">`).join('')}</div>`:'';let d=p.distance?`<span class="distance">${(p.distance*.621371).toFixed(1)} mi</span>`:'';const mp=p.type==='pub'?minBeerPrice(p):null;const beerRows=p.type==='pub'?(p.beers&&p.beers.length?p.beers.map(b=>`<div class="beerRow"><span>🍺 ${b.name}<small>${b.style} · ${b.size||'pint'}${b.lastChecked?' · checked '+b.lastChecked:''}</small></span><b>£${Number(b.price).toFixed(2)}</b></div>`).join(''):`<div class="noBeer">🍺 No individual beer price added yet</div>`):'';let c=document.createElement('div');c.className='card';c.innerHTML=ph+`<div class="body"><div class="top"><div class="name">${i+1}. ${p.name}</div><div class="price">${p.type==='pub'?(mp!==null?'From £'+mp.toFixed(2):'Prices soon'):'☕'}</div></div><div class="meta">⭐ ${p.rating}${d}</div>${p.tags.includes('historic')?'<span class="tag">Historic</span>':''}${p.tags.includes('realale')?'<span class="tag">Real ale</span>':''}${p.tags.includes('coffee')?'<span class="tag">Coffee</span>':''}${p.type==='pub'?`<div class="beerList"><b>🍻 Beer prices</b>${beerRows}</div>`:''}<div class="history">${p.type==='pub'?'🍺 Pub':'☕ Café'} · only prices actually added to the database are shown.</div><a class="nav" target="_blank" href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(p.name+', '+city)}">📍 Navigate</a></div>`;document.getElementById('list').appendChild(c)}
+let userMarker=null;function locateMe(){if(!navigator.geolocation)return alert('Location unavailable.');navigator.geolocation.getCurrentPosition(p=>{userPos={lat:p.coords.latitude,lng:p.coords.longitude};const nearest=Object.entries(centers).sort((a,b)=>dist(userPos.lat,userPos.lng,a[1][0],a[1][1])-dist(userPos.lat,userPos.lng,b[1][0],b[1][1]))[0][0];city=nearest;document.getElementById('sub').textContent=city+' • '+(mode==='drink'?'pubs • pints • real ale':'coffee • 0.0% • food • somewhere nice');document.getElementById('crawlBtn').style.display=mode==='drink'?'inline-block':'none';document.getElementById('drinkBtn').classList.toggle('active',mode==='drink');document.getElementById('nodrinkBtn').classList.toggle('active',mode==='nodrink');if(initMap())map.setView([userPos.lat,userPos.lng],14);if(userMarker&&map)map.removeLayer(userMarker);if(map){userMarker=L.circleMarker([userPos.lat,userPos.lng],{radius:9,fillColor:'#1769d2',color:'#fff',weight:4,fillOpacity:1}).addTo(map).bindPopup('📍 Your location');}render()},()=>alert('Please allow Location access for this website in iPhone Settings → Privacy & Security → Location Services → Safari Websites.'))}
+function openCrawl(){document.getElementById('crawl').style.display='flex'}function closeCrawl(){document.getElementById('crawl').style.display='none'}function buildCrawl(){let pubs=places.filter(p=>p.city===city&&p.type==='pub'&&!p.tags.includes('club')).sort((a,b)=>b.rating-a.rating),budget=+document.getElementById('budget').value,n=+document.getElementById('pubcount').value,chosen=pubs.slice(0,n);let known=chosen.map(minBeerPrice).filter(x=>x!==null),total=known.reduce((a,b)=>a+b,0);document.getElementById('route').innerHTML=`<div class="total">🍺 ${chosen.length} pubs${known.length===chosen.length?' · estimated total £'+total.toFixed(2):' · route selected by rating'}</div>`+chosen.map((p,i)=>{const pr=minBeerPrice(p);return `<div class="routeitem"><b>${i+1}. ${p.name}</b>${pr!==null?' — from £'+pr.toFixed(2):''}<br><small>⭐ ${p.rating}${pr!==null?' · '+beerSummary(p):' · beer price not added yet'}</small><br><a class="nav" target="_blank" href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(p.name+', '+city)}">📍 Navigate</a></div>`}).join('')}
+initMap();chooseMode('drink');document.getElementById('start').style.display='flex';document.getElementById('cities').style.display='none';
+</script></body></html>
