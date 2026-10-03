@@ -1,1 +1,10 @@
-{"name":"Cambridge Pint Finder","short_name":"Pint Finder","start_url":"./","display":"standalone","background_color":"#f3f4f6","theme_color":"#172033"}
+{
+  "name": "Where We Going Then?",
+  "short_name": "WWGT",
+  "description": "Find pubs, pints, real ale and places to go in Cambridge, Norwich, Thetford and Cromer.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#172033",
+  "theme_color": "#172033"
+}

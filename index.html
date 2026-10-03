@@ -73,7 +73,7 @@ const places=[
 ['Hot Numbers Coffee – Trumpington St','Cambridge','cafe',52.1979,-.1218,4.5,['coffee'],[],'Hot Numbers Coffee Trumpington Street Cambridge'],
 ["Aromi – Bene't Street",'Cambridge','cafe',52.2021,-.1193,4.6,['coffee','food'],[],"Aromi Bene't Street Cambridge"],
 ['Fitzbillies','Cambridge','cafe',52.1972,-.1250,4.5,['coffee','food'],[],'Fitzbillies Cambridge']
-].map(x=>({name:x[0],city:x[1],type:x[2],lat:x[3],lng:x[4],rating:x[5],tags:x[6],beers:x[7],search:x[8]})).map(x=>({name:x[0],city:x[1],type:x[2],lat:x[3],lng:x[4],price:x[5],rating:x[6],tags:x[7],item:x[8],search:x[9],beers:x[10]||[]}));
+].map(x=>({name:x[0],city:x[1],type:x[2],lat:x[3],lng:x[4],rating:x[5],tags:x[6],beers:x[7]||[],search:x[8]}));
 function minBeerPrice(p){const prices=(p.beers||[]).map(b=>Number(b.price)).filter(Number.isFinite);return prices.length?Math.min(...prices):null}
 function beerSummary(p){if(!p.beers?.length)return 'Beer prices not yet added';return p.beers.map(b=>`${b.name} £${Number(b.price).toFixed(2)}`).join(' · ')}
 const centers={Cambridge:[52.205,-.122],Norwich:[52.630,1.296],Thetford:[52.414,.749],Cromer:[52.9315,1.3010]};let city='Cambridge',mode='drink',filter='cheap',markers=[],userPos=null,photos={},map=null;function initMap(){if(map||!window.L)return false;try{map=L.map('map').setView(centers.Cambridge,15);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap contributors'}).addTo(map);return true}catch(e){return false}}
